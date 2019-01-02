@@ -25,6 +25,20 @@ function unicode.splice(text1, i, text2, remove)
   return left..text2..right
 end
 
+function unicode.split(text1, i, remove)
+  local left  = unicode.sub(text1, 1, i-1)
+  local right = unicode.sub(text1, i + (remove or 0))
+  return left, right
+end
+
+function unicode.extract(text1, i, count)
+  count = count or 0
+  local left  = unicode.sub(text1, 1, i-1)
+  local mid   = unicode.sub(text1, i, i + count - 1)
+  local right = unicode.sub(text1, i + count)
+  return left, mid, right
+end
+
 function unicode.reverse(text)
   local insert, char = table.insert, utf8.char
   local result = {}
