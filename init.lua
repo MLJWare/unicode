@@ -1480,4 +1480,8 @@ function unicode.is_lower_or_whitespace(text)
   return true
 end
 
+function unicode.is_valid(text)
+  return utf8.len(text) and true or false
+end
+
 return unicode
