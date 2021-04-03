@@ -1,13 +1,17 @@
 local utf8                    = require "utf8"
 
-local unicode = {}
-
-unicode.len  = utf8.len
-unicode.char = utf8.char
+local unicode_len  = utf8.len
+local unicode_char = utf8.char
+local unicode_offset = utf8.offset
 
 local raw_sub = string.sub
 
-function unicode.sub(text, i, j)
+--- Returns the unicode substring of the string that starts at `i` and continues until `j`.
+---@param text string the unicode string for which to obtain the substring.
+---@param i integer the index (in terms of unicode "characters") into the string where the substring should start (inclusive).
+---@param j integer the index (in terms of unicode "characters") into the string where the substring should stop (exclusive).
+---@return string substring the resulting unicode substring.
+local function unicode_sub(text, i, j)
   if not i then return raw_sub(text, i, j) end
 
   local text_len = utf8.len(text)
@@ -19,27 +23,74 @@ function unicode.sub(text, i, j)
   return raw_sub(text, i2, j2)
 end
 
-function unicode.splice(text1, i, text2, remove)
-  local left  = unicode.sub(text1, 1, i-1)
-  local right = unicode.sub(text1, i + (remove or 0))
+--- Splices a string into another string at a given index, optionally removing some characters.
+---@param text1 string the string to splice the other string into.
+---@param index integer the index at which to splice the other string.
+---@param text2 string the string to splice into `text1`.
+---@param remove? integer number of characters to remove at the index before performing the splice.
+---@return string spliced_text the resulting spliced string.
+local function unicode_splice(text1, index, text2, remove)
+  local left  = unicode_sub(text1, 1, index-1)
+  local right = unicode_sub(text1, index + (remove or 0))
   return left..text2..right
 end
 
-function unicode.split(text1, i, remove)
-  local left  = unicode.sub(text1, 1, i-1)
-  local right = unicode.sub(text1, i + (remove or 0))
+--- Splits a given string into two substrings, optionally removing some characters from the start of the second substring.
+---@param text string the string to split.
+---@param index integer the index at which to split the given string.
+---@param remove? integer the amount of characters to remove from the start of the second substring.
+---@return string left_substring the left substring.
+---@return string right_substring the right substring.
+local function unicode_split(text, index, remove)
+  local left  = unicode_sub(text, 1, index-1)
+  local right = unicode_sub(text, index + (remove or 0))
   return left, right
 end
 
-function unicode.extract(text1, i, count)
+--- Similar to `split`, but only returns the first substring.
+---@param text string the string to split.
+---@param index integer the index at which to split the given string.
+---@return string left_substring the left substring.
+local function unicode_split_left(text, index)
+  return unicode_sub(text, 1, index - 1)
+end
+
+--- Similar to `split`, but only returns the last substring.
+---@param text string the string to split.
+---@param index integer the index at which to split the given string.
+---@return string right_substring the right substring.
+local function unicode_split_right(text, index)
+  return unicode_sub(text, index)
+end
+
+--- Similar to `split`, but extracts the middle part instead of removing it.
+---@param text string the string to split.
+---@param index integer the index where the first split should occur.
+---@param count integer the amount of characters to have in the second substring.
+---@return string left_substring the left substring.
+---@return string middle_substring the middle substring, with (at most) `count` characters.
+---@return string right_substring the remaining substring.
+local function unicode_extract(text, index, count)
   count = count or 0
-  local left  = unicode.sub(text1, 1, i-1)
-  local mid   = unicode.sub(text1, i, i + count - 1)
-  local right = unicode.sub(text1, i + count)
+  local left  = unicode_sub(text, 1, index - 1)
+  local mid   = unicode_sub(text, index, index + count - 1)
+  local right = unicode_sub(text, index + count)
   return left, mid, right
 end
 
-function unicode.reverse(text)
+--- Similar to `extract`, but only returns the middle substring.
+---@param text string the string to split.
+---@param index integer the index where the first split should occur.
+---@param count integer the amount of characters to have in the second substring.
+---@return string middle_substring the middle substring, with (at most) `count` characters.
+local function unicode_extract_mid(text, index, count)
+  return unicode_sub(text, index, index + (count or 0) - 1)
+end
+
+--- Reverses a unicode string.
+---@param text string the unicode string to reverse.
+---@return string reversed_text the reversed unicode string.
+local function unicode_reverse(text)
   local insert, char = table.insert, utf8.char
   local result = {}
   for _, cc in utf8.codes(text) do
@@ -1391,7 +1442,10 @@ local WHITESPACE = {
   [32] = true;
 }
 
-function unicode.upper(text)
+---Converts a unicode string to uppercase.
+---@param text string the unicode string to convert to uppercase.
+---@return string uppercase_text the given unicode string converted to uppercase.
+local function unicode_upper(text)
   local upper, char, insert = LOWER_TO_UPPER, utf8.char, table.insert
   local result = {}
   for _, cc in utf8.codes(text) do
@@ -1400,7 +1454,10 @@ function unicode.upper(text)
   return table.concat(result)
 end
 
-function unicode.lower(text)
+---Converts a unicode string to lowercase.
+---@param text string the unicode string to convert to lowercase.
+---@return string lowercase_text the given unicode string converted to lowercase.
+local function unicode_lower(text)
   local lower, char, insert = UPPER_TO_LOWER, utf8.char, table.insert
   local result = {}
   for _, cc in utf8.codes(text) do
@@ -1409,79 +1466,135 @@ function unicode.lower(text)
   return table.concat(result)
 end
 
-function unicode.is_digits(text)
+---Predicate checking whether a given unicode string is consisting of only digits.
+---@param text string the unicode string to check.
+---@return boolean is_digits whether the given unicode string is consisting of only digits.
+local function unicode_is_digits(text)
   for _, cc in utf8.codes(text) do
     if not (47 < cc and cc < 58) then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_letters(text)
+---Predicate checking whether a given unicode string is consisting of only letters.
+---@param text string the unicode string to check.
+---@return boolean is_letters whether the given unicode string is consisting of only letters.
+local function unicode_is_letters(text)
   local upper, lower = UPPER_TO_LOWER, LOWER_TO_UPPER
   for _, cc in utf8.codes(text) do
     if not (upper[cc] or lower[cc]) then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_alphanumeric(text)
+---Predicate checking whether a given unicode string consists of only numbers and letters.
+---@param text string the unicode string to check.
+---@return boolean is_alphanumeric whether the given unicode string consists of only numbers and letters.
+local function unicode_is_alphanumeric(text)
   local upper, lower = UPPER_TO_LOWER, LOWER_TO_UPPER
   for _, cc in utf8.codes(text) do
     if not ((47 < cc and cc < 58) or upper[cc] or lower[cc]) then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_whitespace(text)
+---Predicate checking whether a given unicode string consists of only whitespace.
+---@param text string the unicode string to check.
+---@return boolean is_whitespace whether the given unicode string consists of only whitespace.
+local function unicode_is_whitespace(text)
   local whitespace = WHITESPACE
   for _, cc in utf8.codes(text) do
     if not whitespace[cc] then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_letters_or_whitespace(text)
+---Predicate checking whether a given unicode string consists of only letters or whitespace.
+---@param text string the unicode string to check.
+---@return boolean is_letters_or_whitespace whether the given unicode string consists of only letters or whitespace.
+local function unicode_is_letters_or_whitespace(text)
   local upper, lower, whitespace = UPPER_TO_LOWER, LOWER_TO_UPPER, WHITESPACE
   for _, cc in utf8.codes(text) do
     if not (upper[cc] or lower[cc] or whitespace[cc]) then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_upper(text)
+---Predicate checking whether a given unicode string consists of only uppercase letters.
+---@param text string the unicode string to check.
+---@return boolean is_upper whether the given unicode string consists of only uppercase letters.
+local function unicode_is_upper(text)
   local upper = UPPER_TO_LOWER
   for _, cc in utf8.codes(text) do
     if not upper[cc] then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_upper_or_whitespace(text)
+---Predicate checking whether a given unicode string consists of only uppercase letters or whitespace.
+---@param text string the unicode string to check.
+---@return boolean is_upper_or_whitespace whether the given unicode string consists of only uppercase letters or whitespace.
+local function unicode_is_upper_or_whitespace(text)
   local upper, whitespace = UPPER_TO_LOWER, WHITESPACE
   for _, cc in utf8.codes(text) do
     if not (upper[cc] or whitespace[cc]) then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_lower(text)
+---Predicate checking whether a given unicode string consists of only lowercase letters.
+---@param text string the unicode string to check.
+---@return boolean is_lower whether the given unicode string consists of only lowercase letters.
+local function unicode_is_lower(text)
   local lower = LOWER_TO_UPPER
   for _, cc in utf8.codes(text) do
     if not lower[cc] then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_lower_or_whitespace(text)
+---Predicate checking whether a given unicode string consists of only lowercase letters or whitespace.
+---@param text string the unicode string to check.
+---@return boolean is_lower_or_whitespace whether the given unicode string consists of only lowercase letters or whitespace.
+local function unicode_is_lower_or_whitespace(text)
   local lower, whitespace = LOWER_TO_UPPER, WHITESPACE
   for _, cc in utf8.codes(text) do
     if not (lower[cc] or whitespace[cc]) then return false end
   end
-  return true
+  return #text > 0
 end
 
-function unicode.is_valid(text)
+---Predicate checking whether a given string represents a valid unicode string.
+---@param text string the string to check.
+---@return boolean is_valid whether the given string represents a valid unicode string.
+local function unicode_is_valid(text)
   return utf8.len(text) and true or false
 end
+
+local unicode = {
+  len                      = unicode_len;
+  char                     = unicode_char;
+  offset                   = unicode_offset;
+  sub                      = unicode_sub;
+  splice                   = unicode_splice;
+  split                    = unicode_split;
+  split_left               = unicode_split_left;
+  split_right              = unicode_split_right;
+  extract                  = unicode_extract;
+  extract_mid              = unicode_extract_mid;
+  reverse                  = unicode_reverse;
+  upper                    = unicode_upper;
+  lower                    = unicode_lower;
+  is_digits                = unicode_is_digits;
+  is_letters               = unicode_is_letters;
+  is_alphanumeric          = unicode_is_alphanumeric;
+  is_whitespace            = unicode_is_whitespace;
+  is_letters_or_whitespace = unicode_is_letters_or_whitespace;
+  is_upper                 = unicode_is_upper;
+  is_upper_or_whitespace   = unicode_is_upper_or_whitespace;
+  is_lower                 = unicode_is_lower;
+  is_lower_or_whitespace   = unicode_is_lower_or_whitespace;
+  is_valid                 = unicode_is_valid;
+}
 
 return unicode
